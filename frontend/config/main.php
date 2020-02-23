@@ -45,7 +45,17 @@ return [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => [
+                'profile/<nickname:\w+>' => 'user/profile/view',
             ],
+        ],
+        'redis' => [
+            'class' => 'yii\redis\Connection',
+            'hostname' => 'localhost',
+            'port' => 6379,
+            'database' => 0,
+        ],
+        'storage' => [
+            'class' => 'frontend\components\Storage',
         ], 
     ],
     'params' => $params,

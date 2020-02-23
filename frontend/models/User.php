@@ -20,6 +20,10 @@ use yii\web\IdentityInterface;
  * @property integer $status
  * @property integer $created_at
  * @property integer $updated_at
+ * @property string $about
+ * @property integer $type
+ * @property string $nickname
+ * @property string $picture
  * @property string $password write-only password
  */
 class User extends ActiveRecord implements IdentityInterface
@@ -209,4 +213,121 @@ class User extends ActiveRecord implements IdentityInterface
     {
         $this->password_reset_token = null;
     }
+    /**
+     * @return mixed 
+     */
+    public function getNickname(){
+        
+        if($this->nickname){
+            return $this->nickname;
+        }
+        return $this->getId();
+
+    }
+
+    public function followUser(User $user){
+
+        /* @var $redis Connection */
+        $redis = Yii::$app->redis;
+        $redis->sadd("user:{$this->getId()}:subscriptions", $user->getId());//Добавить id Оливера в список подписок Алекса(Значит Алекс нажал на кнопку)
+        $redis->sadd("user:{$user->getId()}:followers", $this->getId());//Добавить id Алекса в список подписчиков Оливера
+    }
+
+    /**
+     * Unsubscribe current user from given user
+     * @param \frontend\models\User $user
+     */
+    public function unfollowUser(User $user)
+    {
+        /* @var $redis Connection */
+        $redis = Yii::$app->redis;
+        $redis->srem("user:{$this->getId()}:subscriptions", $user->getId());
+        $redis->srem("user:{$user->getId()}:followers", $this->getId());
+    }
+
+    public function getSubscriptions(){
+
+        /* @var $redis Connection */
+        $redis = Yii::$app->redis;
+        $key = "user:{$this->getId()}:subscriptions";
+        $ids = $redis->smembers($key);
+        return User::find()->select('id, username, nickname')->where(['id' => $ids])->orderBy('username')->asArray()->all();
+    }
+
+    public function getFollowers(){
+
+        /* @var $redis Connection */
+        $redis = Yii::$app->redis;
+        $key = "user:{$this->getId()}:followers";
+        $ids = $redis->smembers($key);
+        return User::find()->select('id, username, nickname')->where(['id' => $ids])->orderBy('username')->asArray()->all();
+    }
+
+
+     /**
+     * @return mixed
+     */
+    public function countFollowers()
+    {
+        /* @var $redis Connection */
+        $redis = Yii::$app->redis;
+        return $redis->scard("user:{$this->getId()}:followers");
+    }
+    
+    /**
+     * @return mixed
+     */
+    public function countSubscriptions()
+    {
+        /* @var $redis Connection */
+        $redis = Yii::$app->redis;
+        return $redis->scard("user:{$this->getId()}:subscriptions");
+    }
+
+     /**
+     * @param \frontend\models\User $user
+     * @return array
+     */
+    public function getMutualSubscriptionsTo(User $user)
+    {
+        // Current user subscriptions
+        $key1 = "user:{$this->getId()}:subscriptions";
+        // Given user followers
+        $key2 = "user:{$user->getId()}:followers";
+        
+       /* @var $redis Connection */
+        $redis = Yii::$app->redis;
+        
+        $ids = $redis->sinter($key1, $key2);
+        return User::find()->select('id, username, nickname')->where(['id' => $ids])->orderBy('username')->asArray()->all();
+    }
+
+    /**
+     * Check whether current user if following given user
+     * @param \frontend\models\User $user
+     * @return boolean
+     */
+    public function isFollowing(User $user)
+    {
+        /* @var $redis Connection */
+        $redis = Yii::$app->redis;
+        return (bool) $redis->sismember("user:{$this->getId()}:subscriptions", $user->getId());
+    }
+
+    /**
+     * Get profile picture
+     * @return string
+     */
+    public function getPicture()
+    {   
+        //Проверяем есть ли данные в поле picture 
+        if ($this->picture) {
+            //Возвращаем полный путь к этому файлу
+            return Yii::$app->storage->getFile($this->picture);
+        }
+       
+    }
+ 
+
+
 }

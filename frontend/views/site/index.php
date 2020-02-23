@@ -15,9 +15,9 @@ $this->title = 'My Yii Application';
     </div>
 
     <div class="body-content">
-
+        <?php /*Передается объект User и вызывается метод getNickname()*/?>
         <?php foreach($users as $user):?>
-            <a href="<?php echo Url::to(['user/profile/view', 'id' => $user->id]);?>">
+            <a href="<?php echo Url::to(['user/profile/view', 'nickname' => $user->getNickname()]);?>">
                 <?php echo $user->username;?>
             </a>
             
