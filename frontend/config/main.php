@@ -9,11 +9,20 @@ $params = array_merge(
 return [
     'id' => 'app-frontend',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log'],
+    'language' => 'en-US',
+    'bootstrap' => [
+        'log',
+        [
+            'class' => 'frontend\components\LanguageSelector',
+        ],
+    ],
     'controllerNamespace' => 'frontend\controllers',
     'modules' => [
         'user' => [
             'class' => 'frontend\modules\user\Module',
+        ],
+        'post' => [
+            'class' => 'frontend\modules\post\Module',
         ],
     ],
     'components' => [
@@ -45,18 +54,22 @@ return [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => [
+                '/' => 'site/index',
                 'profile/<nickname:\w+>' => 'user/profile/view',
+                'post/<id:\d+>' => 'post/default/view',
             ],
         ],
-        'redis' => [
-            'class' => 'yii\redis\Connection',
-            'hostname' => 'localhost',
-            'port' => 6379,
-            'database' => 0,
+        'i18n' => [
+            'translations' => [
+                '*' => [
+                    'class' => 'yii\i18n\PhpMessageSource',
+                ],
+            ],
         ],
-        'storage' => [
-            'class' => 'frontend\components\Storage',
-        ], 
+        'feedService' => [
+            'class' => 'frontend\components\FeedService',
+        ],
+         
     ],
     'params' => $params,
 ];

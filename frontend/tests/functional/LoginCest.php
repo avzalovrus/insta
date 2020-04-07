@@ -1,66 +1,48 @@
 <?php
 
-namespace frontend\tests\functional;
+namespace frontend\tests;
 
 use frontend\tests\FunctionalTester;
-use common\fixtures\UserFixture;
+use frontend\tests\fixtures\UserFixture;
 
 class LoginCest
 {
-    /**
-     * Load fixtures before db transaction begin
-     * Called in _before()
-     * @see \Codeception\Module\Yii2::_before()
-     * @see \Codeception\Module\Yii2::loadFixtures()
-     * @return array
-     */
-    public function _fixtures()
-    {
-        return [
-            'user' => [
-                'class' => UserFixture::className(),
-                'dataFile' => codecept_data_dir() . 'login_data.php',
-            ],
-        ];
-    }
 
     public function _before(FunctionalTester $I)
     {
-        $I->amOnRoute('site/login');
+        $I->haveFixtures([
+            'user' => [
+                'class' => UserFixture::className(),
+            ],
+        ]);
     }
 
-    protected function formParams($login, $password)
+    public function checkLoginWorking(FunctionalTester $I)
     {
-        return [
-            'LoginForm[username]' => $login,
-            'LoginForm[password]' => $password,
+        $I->amOnRoute('user/default/login');
+
+        $formParams = [
+            'LoginForm[email]' => '1@got.com',
+            'LoginForm[password]' => '111111',
         ];
+
+        $I->submitForm('#login-form', $formParams);
+
+        $I->see('Eddard "Ned" Stark', 'form button[type=submit]');
     }
 
-    public function checkEmpty(FunctionalTester $I)
+    public function checkLoginWrongPassword(FunctionalTester $I)
     {
-        $I->submitForm('#login-form', $this->formParams('', ''));
-        $I->seeValidationError('Username cannot be blank.');
-        $I->seeValidationError('Password cannot be blank.');
+        $I->amOnRoute('user/default/login');
+
+        $formParams = [
+            'LoginForm[email]' => '1@got.com',
+            'LoginForm[password]' => 'wrong',
+        ];
+
+        $I->submitForm('#login-form', $formParams);
+
+        $I->seeValidationError('Incorrect email or password');
     }
 
-    public function checkWrongPassword(FunctionalTester $I)
-    {
-        $I->submitForm('#login-form', $this->formParams('admin', 'wrong'));
-        $I->seeValidationError('Incorrect username or password.');
-    }
-
-    public function checkInactiveAccount(FunctionalTester $I)
-    {
-        $I->submitForm('#login-form', $this->formParams('test.test', 'Test1234'));
-        $I->seeValidationError('Incorrect username or password');
-    }
-
-    public function checkValidLogin(FunctionalTester $I)
-    {
-        $I->submitForm('#login-form', $this->formParams('erau', 'password_0'));
-        $I->see('Logout (erau)', 'form button[type=submit]');
-        $I->dontSeeLink('Login');
-        $I->dontSeeLink('Signup');
-    }
 }

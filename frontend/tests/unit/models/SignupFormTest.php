@@ -1,8 +1,8 @@
 <?php
-namespace frontend\tests\unit\models;
+namespace frontend\tests\models;
 
-use common\fixtures\UserFixture;
-use frontend\models\SignupForm;
+use frontend\tests\fixtures\UserFixture;
+use frontend\modules\user\models\SignupForm;
 
 class SignupFormTest extends \Codeception\Test\Unit
 {
@@ -10,62 +10,94 @@ class SignupFormTest extends \Codeception\Test\Unit
      * @var \frontend\tests\UnitTester
      */
     protected $tester;
-
-
+    
     public function _before()
     {
         $this->tester->haveFixtures([
             'user' => [
                 'class' => UserFixture::className(),
-                'dataFile' => codecept_data_dir() . 'user.php'
             ]
         ]);
     }
-
-    public function testCorrectSignup()
+    /**
+     * Добавляем имя пользователя с пробелами и после теста они должны быть обрезаны
+     */
+    public function testTrimUsername()
     {
+        /**
+         * Заполняем форму
+         */
         $model = new SignupForm([
-            'username' => 'some_username',
+            'username' => ' some_username ',
             'email' => 'some_email@example.com',
-            'password' => 'some_password',
+            'password' => '12345',
         ]);
-
-        $user = $model->signup();
-        expect($user)->true();
-
-        /** @var \common\models\User $user */
-        $user = $this->tester->grabRecord('common\models\User', [
-            'username' => 'some_username',
-            'email' => 'some_email@example.com',
-            'status' => \common\models\User::STATUS_INACTIVE
-        ]);
-
-        $this->tester->seeEmailIsSent();
-
-        $mail = $this->tester->grabLastSentEmail();
-
-        expect($mail)->isInstanceOf('yii\mail\MessageInterface');
-        expect($mail->getTo())->hasKey('some_email@example.com');
-        expect($mail->getFrom())->hasKey(\Yii::$app->params['supportEmail']);
-        expect($mail->getSubject())->equals('Account registration at ' . \Yii::$app->name);
-        expect($mail->toString())->stringContainsString($user->verification_token);
+        /**
+         * обрезание пробелов
+         */
+        $model->signup();
+        
+        expect($model->username)
+                ->equals('some_username');
     }
-
-    public function testNotCorrectSignup()
+    
+    public function testUsernameRequired()
     {
         $model = new SignupForm([
-            'username' => 'troy.becker',
-            'email' => 'nicolas.dianna@hotmail.com',
+            'username' => '',
+            'email' => 'some_email@example.com',
             'password' => 'some_password',
         ]);
 
-        expect_not($model->signup());
-        expect_that($model->getErrors('username'));
-        expect_that($model->getErrors('email'));
+        $model->signup();
+        /**
+         * Должна выйти ошибка Username cannot be blank
+         */
+        expect($model->getFirstError('username'))
+                ->equals('Username cannot be blank.');
+    }
+    
+    public function testUsernameTooShort()
+    {
+        $model = new SignupForm([
+            'username' => 's',
+            'email' => 'some_email@example.com',
+            'password' => 'some_password',
+        ]);
+
+        $model->signup();
 
         expect($model->getFirstError('username'))
-            ->equals('This username has already been taken.');
+                ->equals('Username should contain at least 2 characters.');
+    }
+    
+    public function testPasswordRequired()
+    {
+        $model = new SignupForm([
+            'username' => 'some_username',
+            'email' => 'some_email@example.com',
+            'password' => '',
+        ]);
+
+        $model->signup();
+
+        expect($model->getFirstError('password'))
+                ->equals('Password cannot be blank.');
+    }    
+
+    public function testEmailUnique()
+    {
+        $model = new SignupForm([
+            'username' => 'some_username',
+            'email' => '1@got.com',
+            'password' => 'some_password',
+        ]);
+
+        $model->signup();
+        
+        sleep(10);
+
         expect($model->getFirstError('email'))
-            ->equals('This email address has already been taken.');
+                ->equals('This email address has already been taken.');
     }
 }

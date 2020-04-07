@@ -29,8 +29,9 @@ use yii\web\IdentityInterface;
 class User extends ActiveRecord implements IdentityInterface
 {
     const STATUS_DELETED = 0;
-    const STATUS_INACTIVE = 9;
     const STATUS_ACTIVE = 10;
+
+    const DEFAULT_IMAGE = '/img/1.jpg';
 
 
     /**
@@ -57,8 +58,8 @@ class User extends ActiveRecord implements IdentityInterface
     public function rules()
     {
         return [
-            ['status', 'default', 'value' => self::STATUS_INACTIVE],
-            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_DELETED]],
+            ['status', 'default', 'value' => self::STATUS_ACTIVE],
+            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_DELETED]],
         ];
     }
 
@@ -107,18 +108,18 @@ class User extends ActiveRecord implements IdentityInterface
         ]);
     }
 
-    /**
-     * Finds user by verification email token
-     *
-     * @param string $token verify email token
-     * @return static|null
-     */
-    public static function findByVerificationToken($token) {
-        return static::findOne([
-            'verification_token' => $token,
-            'status' => self::STATUS_INACTIVE
-        ]);
-    }
+        /**
+         * Finds user by verification email token
+         *
+         * @param string $token verify email token
+         * @return static|null
+         */
+        public static function findByVerificationToken($token) {
+            return static::findOne([
+                'verification_token' => $token,
+                'status' => self::STATUS_INACTIVE
+            ]);
+        }
 
     /**
      * Finds out if password reset token is valid
@@ -218,10 +219,7 @@ class User extends ActiveRecord implements IdentityInterface
      */
     public function getNickname(){
         
-        if($this->nickname){
-            return $this->nickname;
-        }
-        return $this->getId();
+        return ($this->nickname) ? $this->nickname : $this->getId();
 
     }
 
@@ -229,8 +227,14 @@ class User extends ActiveRecord implements IdentityInterface
 
         /* @var $redis Connection */
         $redis = Yii::$app->redis;
-        $redis->sadd("user:{$this->getId()}:subscriptions", $user->getId());//Добавить id Оливера в список подписок Алекса(Значит Алекс нажал на кнопку)
-        $redis->sadd("user:{$user->getId()}:followers", $this->getId());//Добавить id Алекса в список подписчиков Оливера
+        //Список подписок пользователя который нажал на кнопку: user:{$this->getId()}:subscriptions
+        //Метод объекта который нажал на кнопку: $this->getId()
+        //Список подписчиков пользователя на которого хотят подписаться: user:{$user->getId()}:followers
+
+        //Добавить id пользователя на которого хотят подписаться в список подписок пользователя который хочет подписаться 
+        $redis->sadd("user:{$this->getId()}:subscriptions", $user->getId());
+        //Добавить id пользователя который хочет подписаться в список подписчиков пользователя на которого хотят подписаться
+        $redis->sadd("user:{$user->getId()}:followers", $this->getId());
     }
 
     /**
@@ -285,6 +289,7 @@ class User extends ActiveRecord implements IdentityInterface
     }
 
      /**
+     *Показывает общих друзей 
      * @param \frontend\models\User $user
      * @return array
      */
@@ -325,8 +330,57 @@ class User extends ActiveRecord implements IdentityInterface
             //Возвращаем полный путь к этому файлу
             return Yii::$app->storage->getFile($this->picture);
         }
+
+        return self::DEFAULT_IMAGE;
        
     }
+
+    /**
+     * Get data for newsfeed
+     * @param integer $limit
+     * @return array
+     */
+    public function getFeed(int $limit)
+    {
+        $order = ['post_created_at' => SORT_DESC];
+        /**
+         * Указываем связь hasMany т.к. к одному юзеру может быть привязано несколько постов 
+         */
+        return $this->hasMany(Feed::className(), ['user_id' => 'id'])->orderBy($order)->limit($limit)->all();
+    }
+
+    /**
+     * Лайкнул ли пост пользователь
+     * Check whether current user likes post with given id
+     * @param integer $postId
+     * @return boolean
+     */
+    public function likesPost(int $postId)
+    {
+        /* @var $redis Connection */
+        $redis = Yii::$app->redis;
+        return (bool) $redis->sismember("user:{$this->getId()}:likes", $postId);
+    }
+
+    /**
+     * Get post count
+     * @return integer
+     */
+    public function getPostCount()
+    {
+        return $this->hasMany(Post::className(), ['user_id' => 'id'])->count();
+    }
+
+    /**
+     * Get post count
+     * @return Post[]
+     */
+    public function getPosts()
+    {
+        $order = ['created_at' => SORT_DESC];
+        return $this->hasMany(Post::className(), ['user_id' => 'id'])->orderBy($order)->all();
+    }
+    
  
 
 

@@ -7,6 +7,7 @@ use yii\web\Controller;
 use frontend\models\User;
 use yii\web\NotFoundHttpException;
 use yii\web\UploadedFile;
+use yii\web\Response;
 use frontend\modules\user\models\forms\PictureForm;
 
 
@@ -15,11 +16,17 @@ class ProfileController extends Controller{
     public function actionView($nickname){
 
         /* @var $currentUser User */
+        /*Из компонента user берем объект User
+        Пользователь который нажал на кнопку */ 
         $currentUser = Yii::$app->user->identity;
+        /**
+         * Задает правила для аватарок
+         */
         $modelPicture = new PictureForm();
 
 
         return $this->render('view',[
+            //Пользователь к которому мы хотим перейти на страницу 
             'user' => $this->findUser($nickname),
             'currentUser' => $currentUser,
             'modelPicture' => $modelPicture,
@@ -89,7 +96,8 @@ class ProfileController extends Controller{
      */
     public function actionUploadPicture()
     {
-       
+        //Чтобы изображение обновлялось сразу после загрузки
+        Yii::$app->response->format = Response::FORMAT_JSON;
         
         $model = new PictureForm();
         $model->picture = UploadedFile::getInstance($model, 'picture');
@@ -102,10 +110,13 @@ class ProfileController extends Controller{
             $user->picture = Yii::$app->storage->saveUploadedFile($model->picture); 
             //Сохраняем пользователя без валидации 
             if ($user->save(false, ['picture'])) {
-                print_r($user->attributes);die;
+                return [
+                    'success' => true, 
+                    'pictureUri' => Yii::$app->storage->getFile($user->picture),
+                ];
             }
         }
-       
+        return ['success' => false, 'errors' => $model->getErrors()];
     }   
     
         // public function actionGenerate(){
